@@ -45,6 +45,8 @@ type StatesType = {
     name: string;
     location: string;
     isOn: boolean;
+    turnedOnAt?: Date | null; // Optional field for when the light was turned on
+    turnOffAt?: Date | null; // Optional field for when the light was turned off
   }[];
   fans: {
     id: string;
@@ -52,6 +54,10 @@ type StatesType = {
     location: string;
     isOn: boolean;
     speed: string;
+    turnedOnAt?: Date | null; // Optional field for when the fan was turned on
+    turnOffAt?: Date | null; // Optional field for when the fan was turned off
+    turnOnTemperature?: number | null; // Optional field for the temperature when the fan was turned on
+    turnOffTemperature?: number | null; // Optional field for the temperature when the fan was
   }[];
   security: {
     id: string;
@@ -63,18 +69,18 @@ type StatesType = {
 
 export let states: StatesType = {
   lights: [
-    { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: false },
-    { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false },
-    { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: false },
-    { id: "office", name: "Office", location: "Second Floor", isOn: false },
-    { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false },
-    { id: "outside", name: "Outside", location: "Ground Floor", isOn: false },
+    { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "office", name: "Office", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "outside", name: "Outside", location: "Ground Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
   ],
   fans: [
-    { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: false, speed: "Medium" },
-    { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: "Off" },
-    { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: "High" },
-    { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: "Off" },
+    { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: false, speed: "Medium", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: "Off", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: "High", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: "Off", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
   ],
   security: [
     { id: "mainGate", name: "Main Gate", type: "gate", isOn: false },
@@ -83,12 +89,25 @@ export let states: StatesType = {
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+export const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173"
+  }
+});
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = ['http://127.0.0.1:3001', 'http://localhost:5173'];
+
 app.use(cors({
-  origin: "http://localhost:5173", // Adjust this to your frontend URL
-  methods: ["GET"],
+  origin: function (origin, callback) {
+    // console.log(origin);
+    if (!origin || allowedOrigins.includes(origin || "")) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true // if you're using cookies/auth
 }))
 app.use(express.json());
 app.use('/api/fans', fanRouter);
@@ -111,10 +130,29 @@ app.get("/api/invalid", (req, res) => {
 
 app.get("/api/turn-off", (req, res) => {
   console.log("Turning off all devices");
-  states.lights.forEach(light => light.isOn = false);
-  states.fans.forEach(fan => fan.isOn = false);
+  states.lights.forEach(light => {
+    light.isOn = false;
+    light.turnedOnAt = null;
+    light.turnOffAt = null;
+
+  });
+  states.fans.forEach(fan => {
+    fan.isOn = false;
+    fan.turnedOnAt = null;
+    fan.turnOffAt = null;
+    fan.turnOffTemperature = null;
+    fan.turnOnTemperature = null;
+
+  });
   states.security.forEach(sec => sec.isOn = false);
   res.status(200).json({ success: true, message: "All devices turned off", states });
+});
+
+app.get("/api/temperature", (req, res) => {
+  const temp = Math.floor(Math.random() * 30) + 15; // Random temperature between 15 and 45
+  const humidity = Math.floor(Math.random() * 50) + 30; 
+  io.emit("temperatureUpdate", { temperature: temp, humidity });
+  res.status(200).json({ success: true, temperature: temp, humidity });
 });
 
 app.use((req, res) => {

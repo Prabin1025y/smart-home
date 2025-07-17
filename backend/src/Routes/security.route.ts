@@ -12,6 +12,7 @@ securityRouter.get("/", (req, res) => {
         if (!securityDevice)
             return res.status(400).json({ success: false, message: "Invalid query parameters" });
         securityDevice.isOn = state === "on";
+        console.log(`Security device ${securityDevice.name} is now ${securityDevice.isOn ? "on" : "off"}`);
         res.status(200).json({ success: true, id, state });
     } else {
         res.status(400).json({ success: false, message: "Invalid query parameters" });

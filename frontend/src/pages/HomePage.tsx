@@ -1,343 +1,509 @@
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
-import { Lightbulb, Fan, Shield, Thermometer, Droplets, Camera, DoorOpen, Home, Settings } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import {
+  Lightbulb,
+  Fan,
+  Shield,
+  Thermometer,
+  Droplets,
+  Camera,
+  DoorOpen,
+  Home,
+  Settings,
+  Clock,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import useStore from "@/lib/zustand";
+import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 
-// Mock data for devices
-// const initialDevices = {
-//     lights: [
-//         { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: true },
-//         { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false },
-//         { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: true },
-//         { id: "office", name: "Office", location: "Second Floor", isOn: false },
-//         { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false },
-//         { id: "outside", name: "Outside", location: "Ground Floor", isOn: true },
-//     ],
-//     fans: [
-//         { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: true, speed: "Medium" },
-//         { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: "Off" },
-//         { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: true, speed: "High" },
-//         { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: "Off" },
-//     ],
-//     security: [
-//         { id: "gate", name: "Main Gate", type: "gate", isOn: false },
-//     ],
-// }
+export type DataType = {
+  success: boolean;
+  states: {
+    lights: {
+      id: string;
+      name: string;
+      location: string;
+      isOn: boolean;
+      turnedOnAt?: Date | null; // Optional field for when the light was turned on
+      turnOffAt?: Date | null; // Optional field for when the light was turned off
+    }[];
+    fans: {
+      id: string;
+      name: string;
+      location: string;
+      isOn: boolean;
+      speed: string;
+      turnedOnAt?: Date | null; // Optional field for when the fan was turned on
+      turnOffAt?: Date | null; // Optional field for when the fan was turned off
+      turnOnTemperature?: number | null; // Optional field for the temperature when the fan was turned on
+      turnOffTemperature?: number | null; // Optional field for the temperature when the fan was
+    }[];
+    security: {
+      id: string;
+      name: string;
+      type: string;
+      isOn: boolean;
+    }[];
+  };
+};
 
-type DataType = {
-    success: string,
-    states: {
-        lights: {
-            id: string;
-            name: string;
-            location: string;
-            isOn: boolean;
-        }[];
-        fans: {
-            id: string;
-            name: string;
-            location: string;
-            isOn: boolean;
-            speed: string;
-        }[];
-        security: {
-            id: string;
-            name: string;
-            type: string;
-            isOn: boolean;
-        }[];
-    }
-}
-
-const fetchData = async () => {
-    const response = await fetch('http://localhost:3000/api/status')
-    return await response.json()
-}
+export const fetchData = async () => {
+  try {
+    const response = await fetch("http://localhost:3000/api/status");
+    // console.log(response)
+    return await response.json();
+  } catch (error) {
+    alert("Server error");
+  }
+};
 
 export default function HomePage() {
-    const [temperature] = useState(24)
-    const [humidity] = useState(65)
+  const [newDataAvailable, setNewDataAvailable] = useState(true);
 
-    const { data, isLoading, error, refetch, isSuccess, } = useSuspenseQuery<DataType>({
-        queryKey: ['devices'],
-        queryFn: fetchData
-    })
+  const { data, isLoading, isError, refetch, isSuccess } = useQuery<DataType>({
+    queryKey: ["devices"],
+    queryFn: fetchData,
+    staleTime: Infinity, // Prevent refetching unless explicitly called
+  });
+  const { temperature, humidity, stateData, setStateData } = useStore();
 
-
-    const toggleDevice = async (category: keyof typeof data.states, deviceId: string) => {
-        const currentState = data.states[category].find(e => e.id === deviceId)?.isOn;
-        const response = await fetch(`http://localhost:3000/api/${category}?id=${deviceId}&state=${currentState ? 'off' : 'on'}`);
-        const result = await response.json();
-        if (result.success) {
-            await refetch();
-        } else {
-            alert("Failed to toggle device state. Please try again.");
-        }
+  useEffect(() => {
+    console.log("Data fetched", data);
+    if (isSuccess && data) {
+      setStateData(data);
     }
+  }, [data])
 
-    //todo
-    const turnOffAllDevices = async() => {
-        // alert("This feature is not implemented yet.");
-        const response = await fetch("http://localhost:3000/api/turn-off");
-        const result = await response.json();
-        if (result.success) {
-            refetch();
-        }else{
-            alert("Failed to turn off all devices. Please try again.");
-        }
+
+
+
+  // console.log(data, isLoading, isError, isSuccess);
+
+  const toggleDevice = async (
+    category: keyof DataType["states"],
+    deviceId: string,
+    isScheduled: boolean = false,
+    timer: number = 30,
+    minTemp: number = 22,
+    maxTemp: number = 28,
+    isTemperatureControlled: boolean = false
+  ) => {
+    const currentState = data?.states[category].find(
+      (e) => e.id === deviceId
+    )?.isOn;
+    const response = await fetch(
+      `http://localhost:3000/api/${category}?id=${deviceId}&state=${currentState ? "off" : "on"}${isScheduled ? `&turnOffAt=${Date.now() + timer * 60000}` : ""}${isTemperatureControlled ? `&minTemp=${minTemp}&maxTemp=${maxTemp}` : ""}`
+    );
+    const result = await response.json();
+    if (result.success) {
+      await refetch();
+    } else {
+      alert("Failed to toggle device state. Please try again.");
     }
+  };
 
-    const DeviceCard = ({ device, category, icon: Icon }: { device: any; category: keyof typeof data.states; icon: any }) => (
-        <Card className="transition-all duration-200 hover:shadow-md">
-            <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-                    {/* Mobile: Stacked layout, Desktop: Horizontal layout */}
-                    <div className="flex items-center space-x-4">
-                        <div
-                            className={`p-3 sm:p-2 rounded-full ${device.isOn ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}
-                        >
-                            <Icon className="h-6 w-6 sm:h-5 sm:w-5" />
-                        </div>
-                        <div className="flex-1">
-                            <h3 className="font-semibold text-base sm:text-sm">{device.name}</h3>
-                            <p className="text-sm sm:text-xs text-muted-foreground">
-                                {device.location || (device.type === "gate" ? "Entrance" : "Security")}
-                            </p>
-                            {category === "fans" && (
-                                <Badge variant={device.isOn ? "default" : "secondary"} className="text-xs mt-2 sm:mt-1">
-                                    {device.speed}
-                                </Badge>
-                            )}
-                        </div>
-                    </div>
+  //todo
+  const turnOffAllDevices = async () => {
+    // alert("This feature is not implemented yet.");
+    const response = await fetch("http://localhost:3000/api/turn-off");
+    const result = await response.json();
+    if (result.success) {
+      await refetch();
+    } else {
+      alert("Failed to turn off all devices. Please try again.");
+    }
+  };
 
-                    {/* Mobile: Large switch area, Desktop: Compact */}
-                    <div className="flex items-center justify-between sm:justify-end space-x-4 sm:space-x-2">
-                        <div className="flex items-center space-x-3 sm:space-x-2">
-                            <span className={`text-sm font-medium ${device.isOn ? "text-green-600" : "text-red-600"}`}>
-                                {device.isOn ? "ON" : "OFF"}
-                            </span>
-                            <div className={`w-3 h-3 sm:w-2 sm:h-2 rounded-full ${device.isOn ? "bg-green-500" : "bg-red-500"}`} />
-                        </div>
-                        <Switch
-                            checked={device.isOn}
-                            onCheckedChange={() => toggleDevice(category, device.id)}
-                            className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 scale-125 sm:scale-100"
-                        />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
-    )
+  const DeviceCard = ({
+    device,
+    category,
+    icon: Icon,
+  }: {
+    device: any;
+    category: keyof DataType["states"];
+    icon: any;
+  }) => {
+    const [timerValue, setTimerValue] = useState(30);
+    const [isScheduled, setIsScheduled] = useState(false);
+    const [isTemperatureControlled, setIsTemperatureControlled] = useState(false);
+    const [maxTemp, setMaxTemp] = useState(28);
+    const [minTemp, setMinTemp] = useState(22);
 
-    if (isLoading || !isSuccess) return <div>Loading...</div>
-
-    if (error) return <div>Error loading devices</div>
 
     return (
-        <div className="min-h-screen bg-blue-50/30">
-            {/* Header */}
-            <header className="bg-white border-b border-gray-200">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-                        <div className="flex items-center space-x-3">
-                            <div className="p-2 bg-blue-100 rounded-lg">
-                                <Home className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-semibold text-gray-900">Smart Home Dashboard</h1>
-                                <p className="text-sm text-gray-500">Manage your connected devices</p>
-                            </div>
-                        </div>
+      <Card className="transition-all duration-200 hover:shadow-md">
+        <CardContent className="p-4 sm:p-6">
+          {/* Device Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <div
+                className={`p-2 rounded-full ${device.isOn
+                  ? "bg-green-100 text-green-600"
+                  : "bg-red-100 text-red-600"
+                  }`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">{device.name}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {device.location ||
+                    (device.type === "gate" ? "Entrance" : "Security")}
+                </p>
+              </div>
+            </div>
 
-                        {/* Large Temperature and Humidity Display */}
-                        <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6">
-                            <div className="flex items-center space-x-4  px-6 py-4 ">
-                                <div className="flex items-center space-x-3">
-                                    <div className="p-3 bg-blue-500 rounded-full">
-                                        <Thermometer className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-blue-900">{temperature}°C</div>
-                                        <div className="text-sm text-blue-600">Temperature</div>
-                                    </div>
-                                </div>
-                                <div className="w-px h-12 bg-blue-200" />
-                                <div className="flex items-center space-x-3">
-                                    <div className="p-3 bg-cyan-500 rounded-full">
-                                        <Droplets className="h-6 w-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <div className="text-3xl font-bold text-cyan-900">{humidity}%</div>
-                                        <div className="text-sm text-cyan-600">Humidity</div>
-                                    </div>
-                                </div>
-                            </div>
+            {/* Status and Switch */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`text-xs font-medium ${device.isOn ? "text-green-600" : "text-red-600"
+                    }`}
+                >
+                  {device.isOn ? "ON" : "OFF"}
+                </span>
+                <div
+                  className={`w-2 h-2 rounded-full ${device.isOn ? "bg-green-500" : "bg-red-500"
+                    }`}
+                />
+              </div>
+              <Switch
+                checked={device.isOn}
+                onCheckedChange={() => toggleDevice(category, device.id, isScheduled, timerValue, minTemp, maxTemp, isTemperatureControlled)}
+                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+              />
+            </div>
+          </div>
 
-                            {/* Master Switch */}
-                            <Button
-                                onClick={turnOffAllDevices}
-                                variant="destructive"
-                                size="lg"
-                                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-                            >
-                                <span className="text-lg">⚡</span>
-                            </Button>
+          {/* Fan Speed Badge */}
+          {category !== "security" && !device.isOn && (
+            <div className="mb-4 flex gap-4">
+              <div className="flex items-start gap-3">
+                <Checkbox checked={isScheduled} id={`schedule-${device.id}`} onCheckedChange={(checked) => setIsScheduled(checked ? true : false)} />
+                <Label htmlFor={`schedule-${device.id}`} className="text-xs font-medium">
+                  Schedule
+                </Label>
+              </div>
+              {category === "fans" && <div className="flex items-start gap-3">
+                <Checkbox id={`temp-${device.id}`} checked={isTemperatureControlled} onCheckedChange={(checked) => setIsTemperatureControlled(checked ? true : false)} />
+                <Label htmlFor={`temp-${device.id}`} className="text-xs font-medium">
+                  Temperature Control
+                </Label>
+              </div>}
+            </div>
+          )}
 
-                            <Button variant="ghost" size="icon" className="hidden sm:flex">
-                                <Settings className="h-5 w-5" />
-                            </Button>
-                        </div>
-                    </div>
+          {category !== "security" && isScheduled &&
+            <>
+              <Separator className="my-4" />
+
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-xs font-medium">Timer (minutes)</Label>
                 </div>
-            </header>
-
-            {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <Tabs defaultValue="lights" className="space-y-6">
-                    <TabsList className="grid w-full grid-cols-3 lg:w-[400px] bg-white border border-blue-200 shadow-sm">
-                        <TabsTrigger
-                            value="lights"
-                            className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
-                        >
-                            <Lightbulb className="h-4 w-4" />
-                            <span>Lights</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="fans"
-                            className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
-                        >
-                            <Fan className="h-4 w-4" />
-                            <span>Fans</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="security"
-                            className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
-                        >
-                            <Shield className="h-4 w-4" />
-                            <span>Security</span>
-                        </TabsTrigger>
-                    </TabsList>
-
-                    {/* Lights Tab */}
-                    <TabsContent value="lights" className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">Lighting Control</h2>
-                                <p className="text-sm text-gray-500">
-                                    {data.states.lights.filter((light) => light.isOn).length} of {data.states.lights.length} lights are on
-                                </p>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                                {data.states.lights.filter((light) => light.isOn).length} Active
-                            </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {data.states.lights.map((light) => (
-                                <DeviceCard key={light.id} device={light} category="lights" icon={Lightbulb} />
-                            ))}
-                        </div>
-                    </TabsContent>
-
-                    {/* Fans Tab */}
-                    <TabsContent value="fans" className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">Fan Control</h2>
-                                <p className="text-sm text-gray-500">
-                                    {data.states.fans.filter((fan) => fan.isOn).length} of {data.states.fans.length} fans are running
-                                </p>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                                {data.states.fans.filter((fan) => fan.isOn).length} Running
-                            </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {data.states.fans.map((fan) => (
-                                <DeviceCard key={fan.id} device={fan} category="fans" icon={Fan} />
-                            ))}
-                        </div>
-                    </TabsContent>
-
-                    {/* Security Tab */}
-                    <TabsContent value="security" className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-gray-900">Security Control</h2>
-                                <p className="text-sm text-gray-500">
-                                    {data.states.security.filter((device) => device.isOn).length} of {data.states.security.length} security
-                                    devices are active
-                                </p>
-                            </div>
-                            <Badge variant="outline" className="text-xs">
-                                {data.states.security.filter((device) => device.isOn).length} Active
-                            </Badge>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                            {data.states.security.map((device) => (
-                                <DeviceCard
-                                    key={device.id}
-                                    device={device}
-                                    category="security"
-                                    icon={device.type === "gate" ? DoorOpen : Camera}
-                                />
-                            ))}
-                        </div>
-                    </TabsContent>
-                </Tabs>
-
-                {/* Summary Cards */}
-                <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-                                <Lightbulb className="h-4 w-4 text-yellow-500" />
-                                <span>Total Lights</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {data.states.lights.filter((light) => light.isOn).length}/{data.states.lights.length}
-                            </div>
-                            <p className="text-xs text-muted-foreground">Currently active</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-                                <Fan className="h-4 w-4 text-blue-500" />
-                                <span>Total Fans</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {data.states.fans.filter((fan) => fan.isOn).length}/{data.states.fans.length}
-                            </div>
-                            <p className="text-xs text-muted-foreground">Currently running</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium flex items-center space-x-2">
-                                <Shield className="h-4 w-4 text-green-500" />
-                                <span>Security</span>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">
-                                {data.states.security.filter((device) => device.isOn).length}/{data.states.security.length}
-                            </div>
-                            <p className="text-xs text-muted-foreground">Devices active</p>
-                        </CardContent>
-                    </Card>
+                <div className="flex space-x-2">
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={timerValue}
+                    onChange={(e) => setTimerValue(Number(e.target.value))}
+                    className="h-8 text-xs"
+                    min="0"
+                  />
                 </div>
-            </main>
-        </div>
+              </div>
+            </>
+          }
+
+          {/* Temperature Section (Only for Fans) */}
+          {category === "fans" && isTemperatureControlled && (
+            <>
+              <Separator className="my-4" />
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Thermometer className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-xs font-medium">
+                    Temperature Range (°C)
+                  </Label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Min</Label>
+                    <Input
+                      type="number"
+                      placeholder="18"
+                      value={minTemp}
+                      onChange={(e) => setMinTemp(Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Max</Label>
+                    <Input
+                      type="number"
+                      placeholder="26"
+                      value={maxTemp}
+                      onChange={(e) => setMaxTemp(Number(e.target.value))}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+        {(device.turnOffAt || device.turnOnTemperature || device.turnOffTemperature) && <CardFooter className="flex justify-between items-center text-xs text-red-500">
+          {device.turnOffAt
+            && <p>Turn off at: {new Date(device.turnOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
+          {device.turnOffTemperature && <p>Turn off at: {device.turnOffTemperature}&deg;C</p>}
+          {device.turnOnTemperature && <p>Turn on at: {device.turnOnTemperature}&deg;C</p>}
+        </CardFooter>}
+      </Card>
     )
+  };
+
+  if (stateData.states.lights.length === 0) return <div>Loading...</div>;
+
+  // if (isError) return <div>Error loading devices</div>;
+
+  return (
+    <div className="min-h-screen bg-blue-50/30">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Home className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900">
+                  Smart Home Dashboard
+                </h1>
+                <p className="text-sm text-gray-500">
+                  Manage your connected devices
+                </p>
+              </div>
+            </div>
+
+            {/* Large Temperature and Humidity Display */}
+            <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-6">
+              <div className="flex items-center space-x-4  px-6 py-4 ">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-blue-500 rounded-full">
+                    <Thermometer className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-blue-900">
+                      {temperature}°C
+                    </div>
+                    <div className="text-sm text-blue-600">Temperature</div>
+                  </div>
+                </div>
+                <div className="w-px h-12 bg-blue-200" />
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-cyan-500 rounded-full">
+                    <Droplets className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold text-cyan-900">
+                      {humidity}%
+                    </div>
+                    <div className="text-sm text-cyan-600">Humidity</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Master Switch */}
+              <Button
+                onClick={turnOffAllDevices}
+                variant="destructive"
+                size="lg"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <span className="text-lg">⚡</span>
+              </Button>
+
+              <Button variant="ghost" size="icon" className="hidden sm:flex">
+                <Settings className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Tabs defaultValue="lights" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 lg:w-[400px] bg-white border border-blue-200 shadow-sm">
+            <TabsTrigger
+              value="lights"
+              className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <Lightbulb className="h-4 w-4" />
+              <span>Lights</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="fans"
+              className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <Fan className="h-4 w-4" />
+              <span>Fans</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="security"
+              className="flex items-center space-x-2 data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md"
+            >
+              <Shield className="h-4 w-4" />
+              <span>Security</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Lights Tab */}
+          <TabsContent value="lights" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Lighting Control
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {stateData.states.lights.filter((light) => light.isOn).length} of{" "}
+                  {stateData.states.lights.length} lights are on
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {stateData.states.lights.filter((light) => light.isOn).length} Active
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {stateData.states.lights.map((light) => (
+                <DeviceCard
+                  key={light.id}
+                  device={light}
+                  category="lights"
+                  icon={Lightbulb}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Fans Tab */}
+          <TabsContent value="fans" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Fan Control
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {stateData.states.fans.filter((fan) => fan.isOn).length} of{" "}
+                  {stateData.states.fans.length} fans are running
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {stateData.states.fans.filter((fan) => fan.isOn).length} Running
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {stateData.states.fans.map((fan) => (
+                <DeviceCard
+                  key={fan.id}
+                  device={fan}
+                  category="fans"
+                  icon={Fan}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Security Tab */}
+          <TabsContent value="security" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Security Control
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {stateData.states.security.filter((device) => device.isOn).length}{" "}
+                  of {stateData.states.security.length} security devices are active
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {stateData.states.security.filter((device) => device.isOn).length}{" "}
+                Active
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {stateData.states.security.map((device) => (
+                <DeviceCard
+                  key={device.id}
+                  device={device}
+                  category="security"
+                  icon={device.type === "gate" ? DoorOpen : Camera}
+                />
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Summary Cards */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center space-x-2">
+                <Lightbulb className="h-4 w-4 text-yellow-500" />
+                <span>Total Lights</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stateData.states.lights.filter((light) => light.isOn).length}/
+                {stateData.states.lights.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Currently active</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center space-x-2">
+                <Fan className="h-4 w-4 text-blue-500" />
+                <span>Total Fans</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stateData.states.fans.filter((fan) => fan.isOn).length}/
+                {stateData.states.fans.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Currently running</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center space-x-2">
+                <Shield className="h-4 w-4 text-green-500" />
+                <span>Security</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stateData.states.security.filter((device) => device.isOn).length}/
+                {stateData.states.security.length}
+              </div>
+              <p className="text-xs text-muted-foreground">Devices active</p>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
+  );
 }

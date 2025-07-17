@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen p-6 font-sans">
+
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-center">Smart Home Control Panel</h1>
+
+        <!-- Lights Section -->
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">💡 Lights</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <!-- Light Controls -->
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 1</h3>
+                    <div id="livingRoomLight"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 2</h3>
+                    <div id="kitchenLight"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 3</h3>
+                    <div id="bedroomLight"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 4</h3>
+                    <div id="officeLight"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 5</h3>
+                    <div id="bathroomLight"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Light 6</h3>
+                    <div id="outside"
+                        class="toggle-btn bg-gray-300 text-white px-4 py-2 rounded">OFF</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Fans Section -->
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">🌀 Fans</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Fan Controls -->
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Fan 1</h3>
+                    <div id="livingRoomFan"
+                        class="toggle-btn bg-amber-900  text-white px-4 py-2 rounded my-32"></div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Fan 2</h3>
+                    <div id="bedroomFan"
+                        class="toggle-btn bg-amber-900  text-white px-4 py-2 rounded my-32"></div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Fan 3</h3>
+                    <div id="kitchenFan"
+                        class="toggle-btn bg-amber-900  text-white px-4 py-2 rounded my-32"></div>
+                </div>
+                <div class="bg-white p-4 rounded shadow text-center">
+                    <h3 class="font-medium mb-2">Fan 4</h3>
+                    <div id="officeFan"
+                        class="toggle-btn bg-amber-900  text-white px-4 py-2 rounded my-32"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gate Section -->
+        <section class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">🚪 Gate</h2>
+            <div class="bg-white p-6 rounded shadow text-center max-w-sm mx-auto">
+                <h3 class="font-medium mb-2">Main Gate</h3>
+                <div id="mainGate"
+                    class="toggle-btn bg-gray-300 text-white px-6 py-2 rounded">CLOSED</div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
