@@ -46,4 +46,22 @@ lightRouter.get("/", (req, res) => {
     }
 });
 
+lightRouter.get("/brightness", (req, res) => {
+    const id = req.query.id;
+    const brightness = Number(req.query.b);
+
+    if (typeof id === "string" && !isNaN(brightness) && brightness >= 0 && brightness <= 255) {
+        const light = states.lights.find(lgt => lgt.id === id);
+        if (!light)
+            return res.status(400).json({ success: false, message: "Invalid query parameters" });
+
+        light.brightness = brightness;
+        console.log(`${light.name} light brightness set to ${light.brightness}`);
+        io.emit("stateChanged");
+        res.status(200).json({ success: true, id, brightness: light.brightness });
+    } else {
+        res.status(400).json({ success: false, message: "Invalid query parameters" });
+    }
+})
+
 export default lightRouter;

@@ -15,6 +15,8 @@ import {
   Settings,
   Clock,
   Loader,
+  Sun,
+  Wind,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -35,13 +37,14 @@ export type DataType = {
       isOn: boolean;
       turnedOnAt?: Date | null; // Optional field for when the light was turned on
       turnOffAt?: Date | null; // Optional field for when the light was turned off
+      speed?: number;
     }[];
     fans: {
       id: string;
       name: string;
       location: string;
       isOn: boolean;
-      speed: string;
+      speed?: number;
       turnedOnAt?: Date | null; // Optional field for when the fan was turned on
       turnOffAt?: Date | null; // Optional field for when the fan was turned off
       turnOnTemperature?: number | null; // Optional field for the temperature when the fan was turned on
@@ -138,7 +141,24 @@ export default function HomePage() {
     const [isTemperatureControlled, setIsTemperatureControlled] = useState(false);
     const [maxTemp, setMaxTemp] = useState(28);
     const [minTemp, setMinTemp] = useState(22);
+    const [intensityInfo, setIntensityInfo] = useState<{value: number; isEnabled: boolean}>({value: 255, isEnabled: false});
 
+
+    const handleSetIntensity = async () => {
+      if(!intensityInfo.isEnabled) return;
+      setLoading(true);
+      const url = category === "lights" ?
+       `http://localhost:3000/api/lights/brightness?id=${device.id}&b=${intensityInfo.value}` :
+        `http://localhost:3000/api/fans/speed?id=${device.id}&s=${intensityInfo.value}`;
+      const response = await fetch(url);
+      const result = await response.json();
+      if (result.success) {
+        await refetch();
+      } else {
+        toast.error("Failed to set Intensity. Please try again.");
+      }
+      setLoading(false);
+    }
 
     return (
       <Card className="transition-all duration-200 hover:shadow-md">
@@ -201,9 +221,38 @@ export default function HomePage() {
                   Temperature Control
                 </Label>
               </div>}
+
+              <div className="flex items-start gap-3">
+                <Checkbox className="cursor-pointer" checked={intensityInfo.isEnabled} id={`intensity-${device.id}`} onCheckedChange={(checked) => setIntensityInfo({ ...intensityInfo, isEnabled: checked ? true : false })} />
+                <Label htmlFor={`intensity-${device.id}`} className="text-xs font-medium cursor-pointer">
+                  {category === "lights" ? "Brightness" : "Speed"}
+                </Label>
+              </div>
             </div>
           )}
 
+          {category !== "security" && intensityInfo.isEnabled &&
+            <>
+              <Separator className="my-4" />
+
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  {category === "lights" ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Wind className="h-4 w-4 text-muted-foreground" />}
+                  <Label className="text-xs font-medium">{category === "lights" ? "Brightness" : "Speed"}</Label>
+                </div>
+                <div className="flex space-x-2">
+                  <Input
+                    type="number"
+                    placeholder="30"
+                    value={timerValue}
+                    onChange={(e) => setTimerValue(Number(e.target.value))}
+                    className="h-8 text-xs"
+                    min="0"
+                  />
+                </div>
+              </div>
+            </>
+          }
           {category !== "security" && isScheduled &&
             <>
               <Separator className="my-4" />

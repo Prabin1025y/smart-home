@@ -47,13 +47,14 @@ type StatesType = {
     isOn: boolean;
     turnedOnAt?: Date | null; // Optional field for when the light was turned on
     turnOffAt?: Date | null; // Optional field for when the light was turned off
+    brightness?: number; // Optional field for brightness, if applicable
   }[];
   fans: {
     id: string;
     name: string;
     location: string;
     isOn: boolean;
-    speed: string;
+    speed: number;
     turnedOnAt?: Date | null; // Optional field for when the fan was turned on
     turnOffAt?: Date | null; // Optional field for when the fan was turned off
     turnOnTemperature?: number | null; // Optional field for the temperature when the fan was turned on
@@ -69,22 +70,22 @@ type StatesType = {
 
 export let states: StatesType = {
   lights: [
-    { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
-    { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
-    { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
-    { id: "office", name: "Office", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
-    { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
-    { id: "outside", name: "Outside", location: "Ground Floor", isOn: false, turnedOnAt: null, turnOffAt: null },
+    { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    { id: "office", name: "Office", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    { id: "outside", name: "Outside", location: "Ground Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
   ],
   fans: [
-    { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: false, speed: "Medium", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
-    { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: "Off", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
-    { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: "High", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
-    { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: "Off", turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
   ],
   security: [
     { id: "mainGate", name: "Main Gate", type: "gate", isOn: false },
-  ],
+  ]
 }
 
 const app = express();

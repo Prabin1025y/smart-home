@@ -61,4 +61,23 @@ fanRouter.get("/", (req, res) => {
     }
 });
 
+fanRouter.get("/speed", (req, res) => {
+    const id = req.query.id;
+    const speed = Number(req.query.s);
+
+    if (typeof id === "string" && !isNaN(speed) && speed >= 0 && speed <= 255) {
+        const fan = states.fans.find(fn => fn.id === id);
+        if (!fan)
+            return res.status(400).json({ success: false, message: "Invalid query parameters" });
+
+
+        fan.speed = speed;
+        console.log(`${fan.name} fan speed set to ${fan.speed}`);
+        io.emit("stateChanged");
+        res.status(200).json({ success: true, id, speed: fan.speed });
+    } else {
+        res.status(400).json({ success: false, message: "Invalid query parameters" });
+    }
+})
+
 export default fanRouter;
