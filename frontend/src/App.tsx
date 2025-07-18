@@ -3,6 +3,8 @@ import io from 'socket.io-client';
 import { useEffect } from 'react';
 import useStore from "./lib/zustand";
 import { useQuery } from "@tanstack/react-query";
+import { SignedIn, SignedOut } from "@clerk/clerk-react";
+import { Navigate } from "react-router";
 
 function App() {
   const { setTemperature, setHumidity, setStateData } = useStore();
@@ -17,7 +19,7 @@ function App() {
       setStateData(data);
     }
   }, [data])
-  
+
 
   useEffect(() => {
     const socket = io('http://localhost:3000');
@@ -41,7 +43,12 @@ function App() {
 
   return (
     <>
-      <HomePage />
+      <SignedIn>
+        <HomePage />
+      </SignedIn>
+      <SignedOut>
+        <Navigate to="/login" replace />
+      </SignedOut>
     </>
   )
 }

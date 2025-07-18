@@ -149,8 +149,26 @@ app.get("/api/turn-off", (req, res) => {
 });
 
 app.get("/api/temperature", (req, res) => {
-  const temp = Math.floor(Math.random() * 30) + 15; // Random temperature between 15 and 45
-  const humidity = Math.floor(Math.random() * 50) + 30; 
+  const temp = Number(req.query.temp) || Math.floor(Math.random() * 30) + 15; // Default to a random temperature if not provided
+  const humidity = Math.floor(Math.random() * 50) + 30;
+
+  states.fans.forEach(fan => {
+    if (fan.isOn && fan.turnOffTemperature && temp < fan.turnOffTemperature) {
+      fan.isOn = false;
+      fan.turnedOnAt = null;
+      fan.turnOffAt = null;
+      // fan.turnOffTemperature = null;
+      // fan.turnOnTemperature = null;
+      io.emit("stateChanged");
+    } else if (!fan.isOn && fan.turnOnTemperature && temp > fan.turnOnTemperature) {
+      fan.isOn = true;
+      fan.turnedOnAt = new Date();
+      fan.turnOffAt = null;
+      // fan.turnOffTemperature = null;
+      // fan.turnOnTemperature = null;
+      io.emit("stateChanged");
+    }
+  });
   io.emit("temperatureUpdate", { temperature: temp, humidity });
   res.status(200).json({ success: true, temperature: temp, humidity });
 });

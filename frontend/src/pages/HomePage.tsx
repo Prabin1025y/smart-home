@@ -14,6 +14,7 @@ import {
   Home,
   Settings,
   Clock,
+  Loader,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 export type DataType = {
   success: boolean;
@@ -60,28 +62,26 @@ export const fetchData = async () => {
     // console.log(response)
     return await response.json();
   } catch (error) {
-    alert("Server error");
+    toast.error("Server error. Please try again later.");
   }
 };
 
 export default function HomePage() {
-  const [newDataAvailable, setNewDataAvailable] = useState(true);
 
-  const { data, isLoading, isError, refetch, isSuccess } = useQuery<DataType>({
+  const { data, refetch, isSuccess } = useQuery<DataType>({
     queryKey: ["devices"],
     queryFn: fetchData,
     staleTime: Infinity, // Prevent refetching unless explicitly called
   });
   const { temperature, humidity, stateData, setStateData } = useStore();
 
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    console.log("Data fetched", data);
     if (isSuccess && data) {
       setStateData(data);
+      setLoading(false);
     }
   }, [data])
-
-
 
 
   // console.log(data, isLoading, isError, isSuccess);
@@ -98,6 +98,7 @@ export default function HomePage() {
     const currentState = data?.states[category].find(
       (e) => e.id === deviceId
     )?.isOn;
+    setLoading(true);
     const response = await fetch(
       `http://localhost:3000/api/${category}?id=${deviceId}&state=${currentState ? "off" : "on"}${isScheduled ? `&turnOffAt=${Date.now() + timer * 60000}` : ""}${isTemperatureControlled ? `&minTemp=${minTemp}&maxTemp=${maxTemp}` : ""}`
     );
@@ -105,20 +106,22 @@ export default function HomePage() {
     if (result.success) {
       await refetch();
     } else {
-      alert("Failed to toggle device state. Please try again.");
+      toast.error("Request Failed. Please try again.");
     }
+    setLoading(false);
   };
 
-  //todo
   const turnOffAllDevices = async () => {
-    // alert("This feature is not implemented yet.");
+    setLoading(true);
     const response = await fetch("http://localhost:3000/api/turn-off");
     const result = await response.json();
     if (result.success) {
       await refetch();
+      toast.success("All devices turned off");
     } else {
-      alert("Failed to turn off all devices. Please try again.");
+      toast.error("Failed to turn off all devices. Please try again.");
     }
+    setLoading(false);
   };
 
   const DeviceCard = ({
@@ -176,8 +179,9 @@ export default function HomePage() {
               </div>
               <Switch
                 checked={device.isOn}
+                disabled={loading}
                 onCheckedChange={() => toggleDevice(category, device.id, isScheduled, timerValue, minTemp, maxTemp, isTemperatureControlled)}
-                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500"
+                className="data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-red-500 cursor-pointer"
               />
             </div>
           </div>
@@ -186,14 +190,14 @@ export default function HomePage() {
           {category !== "security" && !device.isOn && (
             <div className="mb-4 flex gap-4">
               <div className="flex items-start gap-3">
-                <Checkbox checked={isScheduled} id={`schedule-${device.id}`} onCheckedChange={(checked) => setIsScheduled(checked ? true : false)} />
-                <Label htmlFor={`schedule-${device.id}`} className="text-xs font-medium">
+                <Checkbox className="cursor-pointer" checked={isScheduled} id={`schedule-${device.id}`} onCheckedChange={(checked) => setIsScheduled(checked ? true : false)} />
+                <Label htmlFor={`schedule-${device.id}`} className="text-xs font-medium cursor-pointer">
                   Schedule
                 </Label>
               </div>
               {category === "fans" && <div className="flex items-start gap-3">
-                <Checkbox id={`temp-${device.id}`} checked={isTemperatureControlled} onCheckedChange={(checked) => setIsTemperatureControlled(checked ? true : false)} />
-                <Label htmlFor={`temp-${device.id}`} className="text-xs font-medium">
+                <Checkbox className="cursor-pointer" id={`temp-${device.id}`} checked={isTemperatureControlled} onCheckedChange={(checked) => setIsTemperatureControlled(checked ? true : false)} />
+                <Label htmlFor={`temp-${device.id}`} className="text-xs font-medium cursor-pointer">
                   Temperature Control
                 </Label>
               </div>}
@@ -212,7 +216,7 @@ export default function HomePage() {
                 <div className="flex space-x-2">
                   <Input
                     type="number"
-                    placeholder="0"
+                    placeholder="30"
                     value={timerValue}
                     onChange={(e) => setTimerValue(Number(e.target.value))}
                     className="h-8 text-xs"
@@ -270,12 +274,16 @@ export default function HomePage() {
     )
   };
 
-  if (stateData.states.lights.length === 0) return <div>Loading...</div>;
+  if (stateData.states.lights.length === 0)
+    return <div className="absolute inset-0 flex items-center justify-center">
+      <Loader className="text-cyan-500 animate-spin size-24" />
+    </div>;
 
   // if (isError) return <div>Error loading devices</div>;
 
   return (
     <div className="min-h-screen bg-blue-50/30">
+      {loading && <div className="bg-black/20 fixed inset-0 grid place-items-center z-10"><Loader className="text-cyan-500 animate-spin size-10" /></div>}
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -327,9 +335,10 @@ export default function HomePage() {
                 onClick={turnOffAllDevices}
                 variant="destructive"
                 size="lg"
-                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer"
               >
-                <span className="text-lg">⚡</span>
+                {/* <Power className="font-extrabold h-5 w-5 mr-2" /> */}
+                <span className="text-lg brightness-0 invert">⚡</span>
               </Button>
 
               <Button variant="ghost" size="icon" className="hidden sm:flex">
