@@ -73,15 +73,15 @@ export let states: StatesType = {
     { id: "livingRoom", name: "Living Room", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
     { id: "kitchen", name: "Kitchen", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
     { id: "bedroom", name: "Master Bedroom", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
-    { id: "office", name: "Office", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
-    { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
-    { id: "outside", name: "Outside", location: "Ground Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    // { id: "office", name: "Office", location: "Second Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    // { id: "bathroom", name: "Bathroom", location: "Main Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
+    // { id: "outside", name: "Outside", location: "Ground Floor", isOn: false, turnedOnAt: null, turnOffAt: null, brightness: 255 },
   ],
   fans: [
     { id: "livingRoom", name: "Living Room Fan", location: "Main Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
     { id: "bedroom", name: "Bedroom Fan", location: "Second Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
-    { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
-    { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    // { id: "kitchen", name: "Kitchen Fan", location: "Main Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
+    // { id: "office", name: "Office Fan", location: "Second Floor", isOn: false, speed: 255, turnedOnAt: null, turnOffAt: null, turnOnTemperature: null, turnOffTemperature: null },
   ],
   security: [
     { id: "mainGate", name: "Main Gate", type: "gate", isOn: false },
@@ -150,8 +150,39 @@ app.get("/api/turn-off", (req, res) => {
 });
 
 app.get("/api/temperature", (req, res) => {
+  if(!Number(req.query.temp))
+    return;
+
   const temp = Number(req.query.temp) || Math.floor(Math.random() * 30) + 15; // Default to a random temperature if not provided
-  const humidity = Math.floor(Math.random() * 50) + 30;
+  const humidity = Number(req.query.humidity) || Math.floor(Math.random() * 30) + 15;
+
+  states.fans.forEach(fan => {
+    if (fan.isOn && fan.turnOffTemperature && temp < fan.turnOffTemperature) {
+      fan.isOn = false;
+      fan.turnedOnAt = null;
+      fan.turnOffAt = null;
+      // fan.turnOffTemperature = null;
+      // fan.turnOnTemperature = null;
+      io.emit("stateChanged");
+    } else if (!fan.isOn && fan.turnOnTemperature && temp > fan.turnOnTemperature) {
+      fan.isOn = true;
+      fan.turnedOnAt = new Date();
+      fan.turnOffAt = null;
+      // fan.turnOffTemperature = null;
+      // fan.turnOnTemperature = null;
+      io.emit("stateChanged");
+    }
+  });
+  io.emit("temperatureUpdate", { temperature: temp, humidity });
+  res.status(200).json({ success: true, temperature: temp, humidity });
+});
+
+app.get("/api/temp", (req, res) => {
+  if(!req.query.temp)
+    return;
+
+  const temp = Number(req.query.temp) || Math.floor(Math.random() * 30) + 15; // Default to a random temperature if not provided
+  const humidity = Number(req.query.humidity) || Math.floor(Math.random() * 30) + 15;
 
   states.fans.forEach(fan => {
     if (fan.isOn && fan.turnOffTemperature && temp < fan.turnOffTemperature) {
