@@ -3,8 +3,8 @@ import io from 'socket.io-client';
 import { useEffect } from 'react';
 import useStore from "./lib/zustand";
 import { useQuery } from "@tanstack/react-query";
-import { SignedIn, SignedOut } from "@clerk/clerk-react";
-import { Navigate } from "react-router";
+// import { SignedIn, SignedOut } from "@clerk/clerk-react";
+// import { Navigate } from "react-router";
 
 function App() {
   const { setTemperature, setHumidity, setStateData } = useStore();
@@ -43,12 +43,12 @@ function App() {
 
   return (
     <>
-      <SignedIn>
+      {/* <SignedIn> */}
         <HomePage />
-      </SignedIn>
+      {/* </SignedIn>
       <SignedOut>
         <Navigate to="/login" replace />
-      </SignedOut>
+      </SignedOut> */}
     </>
   )
 }

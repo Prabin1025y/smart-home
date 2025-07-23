@@ -39,14 +39,16 @@ import securityRouter from './Routes/security.route';
 //   }
 // }
 
-type StatesType = {
+export type StatesType = {
   lights: {
     id: string;
     name: string;
     location: string;
     isOn: boolean;
-    turnedOnAt?: Date | null; // Optional field for when the light was turned on
-    turnOffAt?: Date | null; // Optional field for when the light was turned off
+    onOffDate?: {
+      on: Date | null; // Optional field for the date when the fan was turned on
+      off: Date | null; // Optional field for the date when the fan was turned off
+    };
     brightness?: number; // Optional field for brightness, if applicable
   }[];
   fans: {
@@ -55,10 +57,14 @@ type StatesType = {
     location: string;
     isOn: boolean;
     speed: number;
-    turnedOnAt?: Date | null; // Optional field for when the fan was turned on
-    turnOffAt?: Date | null; // Optional field for when the fan was turned off
-    turnOnTemperature?: number | null; // Optional field for the temperature when the fan was turned on
-    turnOffTemperature?: number | null; // Optional field for the temperature when the fan was
+    onOffDate?: {
+      on: Date | null; // Optional field for the date when the fan was turned on
+      off: Date | null; // Optional field for the date when the fan was turned off
+    };
+    onOffTemperature?: {
+      on: number | null; // Optional field for the temperature at which the fan turns on
+      off: number | null; // Optional field for the temperature at which the fan turns off
+    }
   }[];
   security: {
     id: string;
@@ -97,7 +103,7 @@ export const io = new Server(server, {
 });
 const PORT = process.env.PORT || 3000;
 
-const allowedOrigins = ['http://127.0.0.1:3001', 'http://localhost:5173'];
+const allowedOrigins = [ 'http://127.0.0.1:3001', 'http://localhost:5173' ];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -150,7 +156,7 @@ app.get("/api/turn-off", (req, res) => {
 });
 
 app.get("/api/temperature", (req, res) => {
-  if(!Number(req.query.temp))
+  if (!Number(req.query.temp))
     return;
 
   const temp = Number(req.query.temp) || Math.floor(Math.random() * 30) + 15; // Default to a random temperature if not provided
@@ -170,15 +176,15 @@ app.get("/api/temperature", (req, res) => {
       fan.turnOffAt = null;
       // fan.turnOffTemperature = null;
       // fan.turnOnTemperature = null;
-      io.emit("stateChanged");
+      // io.emit("stateChanged");
     }
   });
-  io.emit("temperatureUpdate", { temperature: temp, humidity });
+  // io.emit("temperatureUpdate", { temperature: temp, humidity });
   res.status(200).json({ success: true, temperature: temp, humidity });
 });
 
 app.get("/api/temp", (req, res) => {
-  if(!req.query.temp)
+  if (!req.query.temp)
     return;
 
   const temp = Number(req.query.temp) || Math.floor(Math.random() * 30) + 15; // Default to a random temperature if not provided
