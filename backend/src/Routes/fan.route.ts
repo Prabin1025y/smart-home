@@ -6,88 +6,74 @@ const fanRouter = Router();
 type ReqBodyType = {
     id: string;
     state: "on" | "off";
-    turnOffAt?: string; // ISO date string
+    turnOffDate?: string; // ISO date string
     minTemp?: number;
     maxTemp?: number;
 }
 
 fanRouter.post("/", (req, res) => {
-    // const id = req.query.id;
-    // const state = req.query.state;
-    // const turnOffDate = req.query.turnOffAt;
-    // const minTemp = req.query.minTemp;
-    // const maxTemp = req.query.maxTemp;
+    const { id, state, turnOffDate, minTemp, maxTemp }: ReqBodyType = req.body;
 
-    const { id, state, turnOffAt: turnOffDate, minTemp, maxTemp }: ReqBodyType = req.body;
-
-    // if (typeof id === "string" && typeof state === "string" && (state === "on" || state === "off")) {
     const fan = states.fans.find(fn => fn.id === id);
     if (!fan)
         return res.status(404).json({ success: false, message: "Specified fan doesn't exists." });
-    // fan.isOn = state === "on";
 
     if (state === "on") {
+        //turn on the fan
         fan.isOn = true;
-        fan.turnedOnAt = new Date();
-        fan.turnOffAt = turnOffDate ? new Date(Number(turnOffDate)) : null; // Set turnOffAt if provided
+        fan.onOffDate.on = new Date(); // Set the date when the fan was turned on
+        fan.onOffDate.off = null; // Reset the off date
+        if (turnOffDate) {
+            fan.onOffDate.off = new Date(Number(turnOffDate)); // Set turnOffAt if provided
+
+            const targetTime = Number(turnOffDate);
+            const now = Date.now();
+            const delay = targetTime - now; //get the delay in milliseconds
+
+            if (delay > 0) {
+                setTimeout(() => {
+                    fan.isOn = false;
+                    fan.onOffDate = { on: null, off: null }; // Reset onOffDate
+                    fan.onOffTemperature = { on: null, off: null }; // Reset temperatures
+
+                    io.emit("stateChanged");
+                    console.log(`${fan.name} fan is turned off`);
+                }, delay);
+            }
+        }
     } else {
         fan.isOn = false;
-        fan.turnedOnAt = null;
-        fan.turnOffAt = null; // Reset turnOffAt when turning off
-        fan.turnOffTemperature = null;
-        fan.turnOnTemperature = null;
+        fan.onOffDate = { on: null, off: null }; // Reset onOffDate
+        fan.onOffTemperature = { on: null, off: null }; // Reset temperatures
     }
 
     if (minTemp && maxTemp) {
-        fan.turnOffTemperature = Number(minTemp);
-        fan.turnOnTemperature = Number(maxTemp);
+        fan.onOffTemperature = { on: maxTemp, off: minTemp };
     } else {
-        fan.turnOffTemperature = null;
-        fan.turnOnTemperature = null;
+        fan.onOffTemperature = { on: null, off: null };
     }
 
-    if (turnOffDate) {
-        const targetTime = Number(turnOffDate);
-        const now = Date.now();
-        const delay = targetTime - now;
-        if (delay > 0) {
-            setTimeout(() => {
-                fan.isOn = false;
-                fan.turnedOnAt = null;
-                fan.turnOffAt = null;
-                fan.turnOffTemperature = null;
-                fan.turnOnTemperature = null;
-
-                io.emit("stateChanged");
-                console.log(`${fan.name} fan is turned off`);
-            }, delay);
-        }
-    }
 
     console.log(`${fan.name} fan is turned ${fan.isOn ? "on" : "off"}`);
     res.status(200).json({ success: true, id, state });
-    // } else {
-    //     res.status(400).json({ success: false, message: "Invalid query parameters" });
-    // }
 });
 
-fanRouter.get("/speed", (req, res) => {
-    const id = req.query.id;
-    const speed = Number(req.query.s);
+fanRouter.post("/intensity", (req, res) => {
+    const { id, intensity: speed }: { id: string, intensity: number } = req.body;
 
-    if (typeof id === "string" && !isNaN(speed) && speed >= 0 && speed <= 255) {
-        const fan = states.fans.find(fn => fn.id === id);
-        if (!fan)
-            return res.status(400).json({ success: false, message: "Invalid query parameters" });
-
-
-        fan.speed = speed;
-        console.log(`${fan.name} fan speed set to ${fan.speed}`);
-        io.emit("stateChanged");
-        res.status(200).json({ success: true, id, speed: fan.speed });
-    } else {
-        res.status(400).json({ success: false, message: "Invalid query parameters" });
+    if (speed < 0 || speed > 255) {
+        return res.status(400).json({ success: false, message: "Invalid speed value. Speed must be between 0 and 255." });
     }
+
+    const fan = states.fans.find(fn => fn.id === id);
+
+    if (!fan)
+        return res.status(404).json({ success: false, message: "Specified fan doesn't exists." });
+
+    fan.speed = speed;
+    console.log(`${fan.name} fan speed set to ${fan.speed}`);
+    io.emit("stateChanged");
+    res.status(200).json({ success: true, id, speed: fan.speed });
 })
 
 export default fanRouter;

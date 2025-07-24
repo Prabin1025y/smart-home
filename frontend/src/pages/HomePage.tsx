@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { Slider } from "@/components/ui/slider";
 
 export type DataType = {
   success: boolean;
@@ -72,25 +73,25 @@ export const fetchData = async () => {
 export default function HomePage() {
 
   const { data, refetch, isSuccess } = useQuery<DataType>({
-    queryKey: ["devices"],
+    queryKey: [ "devices" ],
     queryFn: fetchData,
     staleTime: Infinity, // Prevent refetching unless explicitly called
   });
   const { temperature, humidity, stateData, setStateData } = useStore();
 
-  const [loading, setLoading] = useState(true);
+  const [ loading, setLoading ] = useState(true);
   useEffect(() => {
     if (isSuccess && data) {
       setStateData(data);
       setLoading(false);
     }
-  }, [data])
+  }, [ data ])
 
 
   // console.log(data, isLoading, isError, isSuccess);
 
   const toggleDevice = async (
-    category: keyof DataType["states"],
+    category: keyof DataType[ "states" ],
     deviceId: string,
     isScheduled: boolean = false,
     timer: number = 30,
@@ -98,13 +99,23 @@ export default function HomePage() {
     maxTemp: number = 28,
     isTemperatureControlled: boolean = false
   ) => {
-    const currentState = data?.states[category].find(
+    const currentState = data?.states[ category ].find(
       (e) => e.id === deviceId
     )?.isOn;
     setLoading(true);
-    const response = await fetch(
-      `http://localhost:3000/api/${category}?id=${deviceId}&state=${currentState ? "off" : "on"}${isScheduled ? `&turnOffAt=${Date.now() + timer * 60000}` : ""}${isTemperatureControlled ? `&minTemp=${minTemp}&maxTemp=${maxTemp}` : ""}`
-    );
+    const response = await fetch(`http://localhost:3000/api/${category}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: deviceId,
+        state: currentState ? "off" : "on",
+        turnOffDate: isScheduled ? Date.now() + timer * 60000 : null,
+        minTemp: isTemperatureControlled ? minTemp : null,
+        maxTemp: isTemperatureControlled ? maxTemp : null,
+      })
+    })
     const result = await response.json();
     if (result.success) {
       await refetch();
@@ -133,24 +144,33 @@ export default function HomePage() {
     icon: Icon,
   }: {
     device: any;
-    category: keyof DataType["states"];
+    category: keyof DataType[ "states" ];
     icon: any;
   }) => {
-    const [timerValue, setTimerValue] = useState(30);
-    const [isScheduled, setIsScheduled] = useState(false);
-    const [isTemperatureControlled, setIsTemperatureControlled] = useState(false);
-    const [maxTemp, setMaxTemp] = useState(28);
-    const [minTemp, setMinTemp] = useState(22);
-    const [intensityInfo, setIntensityInfo] = useState<{value: number; isEnabled: boolean}>({value: 255, isEnabled: false});
+    const [ timerValue, setTimerValue ] = useState(30);
+    const [ isScheduled, setIsScheduled ] = useState(false);
+    const [ isTemperatureControlled, setIsTemperatureControlled ] = useState(false);
+    const [ maxTemp, setMaxTemp ] = useState(28);
+    const [ minTemp, setMinTemp ] = useState(22);
+    const [ intensityInfo, setIntensityInfo ] = useState<{ value: number; isEnabled: boolean }>({
+      value: device.brightness || device.speed || 255,
+      isEnabled: false
+    });
 
 
     const handleSetIntensity = async () => {
-      if(!intensityInfo.isEnabled) return;
       setLoading(true);
-      const url = category === "lights" ?
-       `http://localhost:3000/api/lights/brightness?id=${device.id}&b=${intensityInfo.value}` :
-        `http://localhost:3000/api/fans/speed?id=${device.id}&s=${intensityInfo.value}`;
-      const response = await fetch(url);
+
+      const response = await fetch(`http://localhost:3000/api/${category}/intensity`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: device.id,
+          intensity: intensityInfo.isEnabled ? intensityInfo.value : 255,
+        }),
+      });
       const result = await response.json();
       if (result.success) {
         await refetch();
@@ -161,8 +181,8 @@ export default function HomePage() {
     }
 
     return (
-      <Card className="transition-all duration-200 hover:shadow-md">
-        <CardContent className="p-4 sm:p-6">
+      <Card className="transition-all gap-0 duration-200 hover:shadow-md">
+        <CardContent className="p-4 pb-2 sm:p-6 sm:pb-3">
           {/* Device Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
@@ -207,30 +227,39 @@ export default function HomePage() {
           </div>
 
           {/* Fan Speed Badge */}
-          {category !== "security" && !device.isOn && (
-            <div className="mb-4 flex gap-4">
-              <div className="flex items-start gap-3">
-                <Checkbox className="cursor-pointer" checked={isScheduled} id={`schedule-${device.id}`} onCheckedChange={(checked) => setIsScheduled(checked ? true : false)} />
-                <Label htmlFor={`schedule-${device.id}`} className="text-xs font-medium cursor-pointer">
-                  Schedule
-                </Label>
-              </div>
-              {category === "fans" && <div className="flex items-start gap-3">
-                <Checkbox className="cursor-pointer" id={`temp-${device.id}`} checked={isTemperatureControlled} onCheckedChange={(checked) => setIsTemperatureControlled(checked ? true : false)} />
-                <Label htmlFor={`temp-${device.id}`} className="text-xs font-medium cursor-pointer">
-                  Temperature Control
-                </Label>
-              </div>}
+          <div className="mb-4 flex gap-4">
+            {category !== "security" && !device.isOn && (
+              <>
+                <div className="flex items-start gap-3">
+                  <Checkbox className="cursor-pointer" checked={isScheduled} id={`schedule-${device.id}`} onCheckedChange={(checked) => setIsScheduled(checked ? true : false)} />
+                  <Label htmlFor={`schedule-${device.id}`} className="text-xs font-medium cursor-pointer">
+                    Schedule
+                  </Label>
+                </div>
+                {category === "fans" && <div className="flex items-start gap-3">
+                  <Checkbox className="cursor-pointer" id={`temp-${device.id}`} checked={isTemperatureControlled} onCheckedChange={(checked) => setIsTemperatureControlled(checked ? true : false)} />
+                  <Label htmlFor={`temp-${device.id}`} className="text-xs font-medium cursor-pointer">
+                    Temperature Control
+                  </Label>
+                </div>}
 
-              <div className="flex items-start gap-3">
-                <Checkbox className="cursor-pointer" checked={intensityInfo.isEnabled} id={`intensity-${device.id}`} onCheckedChange={(checked) => setIntensityInfo({ ...intensityInfo, isEnabled: checked ? true : false })} />
-                <Label htmlFor={`intensity-${device.id}`} className="text-xs font-medium cursor-pointer">
-                  {category === "lights" ? "Brightness" : "Speed"}
-                </Label>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+            {category !== "security" && <div className="flex items-start gap-3">
+              <Checkbox
+                className="cursor-pointer"
+                checked={intensityInfo.isEnabled}
+                id={`intensity-${device.id}`}
+                onCheckedChange={(checked) => setIntensityInfo({ ...intensityInfo, isEnabled: checked ? true : false })}
 
+              />
+              <Label htmlFor={`intensity-${device.id}`} className="text-xs font-medium cursor-pointer">
+                {category === "lights" ? "Brightness" : "Speed"}
+              </Label>
+            </div>}
+          </div>
+
+          {/* Intensity Section */}
           {category !== "security" && intensityInfo.isEnabled &&
             <>
               <Separator className="my-4" />
@@ -241,14 +270,22 @@ export default function HomePage() {
                   <Label className="text-xs font-medium">{category === "lights" ? "Brightness" : "Speed"}</Label>
                 </div>
                 <div className="flex space-x-2">
-                  <Input
+                  {/* <Input
                     type="number"
                     placeholder="30"
                     value={timerValue}
                     onChange={(e) => setTimerValue(Number(e.target.value))}
                     className="h-8 text-xs"
                     min="0"
+                  /> */}
+                  <Slider
+                    value={[ intensityInfo.value ]}
+                    onValueChange={(value) => setIntensityInfo({ value: value[ 0 ], isEnabled: intensityInfo.isEnabled })}
+                    max={255}
+                    min={1}
+                    step={1}
                   />
+                  <Button className="cursor-pointer" onClick={handleSetIntensity}>Set</Button>
                 </div>
               </div>
             </>
@@ -313,12 +350,15 @@ export default function HomePage() {
             </>
           )}
         </CardContent>
-        {(device.turnOffAt || device.turnOnTemperature || device.turnOffTemperature) && <CardFooter className="flex justify-between items-center text-xs text-red-500">
-          {device.turnOffAt
-            && <p>Turn off at: {new Date(device.turnOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
-          {device.turnOffTemperature && <p>Turn off at: {device.turnOffTemperature}&deg;C</p>}
-          {device.turnOnTemperature && <p>Turn on at: {device.turnOnTemperature}&deg;C</p>}
-        </CardFooter>}
+        <CardFooter className="flex flex-col items-start text-xs text-red-500">
+          {category !== "security" && <p>{category === "fans" ? "Speed" : "Brightness"}: {Math.round((intensityInfo.value / 255) * 100)}</p>}
+          <div className="flex justify-between items-center w-full">
+            {device.onOffDate?.off
+              && <p>Turn off at: {new Date(device.onOffDate.off).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>}
+            {device.onOffTemperature?.off && <p>Turn off at: {device.onOffTemperature.off}&deg;C</p>}
+            {device.onOffTemperature?.on && <p>Turn on at: {device.onOffTemperature.on}&deg;C</p>}
+          </div>
+        </CardFooter>
       </Card>
     )
   };
